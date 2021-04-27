@@ -1,0 +1,6 @@
+POST http://localhost:63342/index.html/src/index.html?_ijt=a0qisau9gq4brihbl7q68ehj01
+Content-Type: application/x-www-form-urlencoded
+
+nombre=admin&contrasenya=1234
+
+###

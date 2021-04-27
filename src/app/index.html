@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <style>
+        table {
+            margin: 0 auto;
+            border-collapse: collapse;
+            font-family: sans-serif;
+        }
+
+        th {
+            border-bottom: solid 2px black;
+        }
+
+        td {
+            border-bottom: solid 1px black;
+            padding: .2em 3em;
+        }
+
+        tbody tr:nth-child(even) {
+            background-color: #eee;
+        }
+
+        body {
+            font-family: sans-serif;
+        }
+    </style>
+    <script src="../../datos/ventas.js"></script>
+    <script src="../../datos/vendedores.js"></script>
+
+    <script>
+        fetch('../api/v1.0/').then(function (respuesta) {
+            if (respuesta.ok){
+                return respuesta.json();
+            }else{
+                location.href ='./..'
+            }
+        }).then(function (data){
+            document.getElementById("bienvenida").innerText = data.nombre;
+        })
+
+        function logout(){
+            //cambiar las rutas de ../api/v1.0/ a ../api/v1.0/sesion
+            fetch('../api/v1.0/', {
+                method: 'DELETE'
+            }).then(function (respuesta){
+                if (respuesta.ok){
+                    location.href = '../index.html';
+                }
+            })
+        }
+    </script>
+</head>
+<body>
+<div id="bienvenida"></div>
+<button onclick="logout()">Salir</button>
+<div id="filtros">
+    <label>Vendedores:
+        <select id="selector-vendedores"></select>
+    </label>
+</div>
+<table>
+    <thead>
+    <tr>
+        <th>Vendedor <button data-campo="vendedor"></button></th>
+        <th>Cliente<button data-campo="cliente"></button></th>
+        <th>Fecha<button data-campo="fecha"></button></th>
+        <th>Importe<button data-campo="importe"></button></th>
+    </tr>
+    </thead>
+    <tbody id="tablaVentas"></tbody>
+</table>
+
+<script>
+    const ModeloVentas = {
+        getData: function (callback, filtros = {}, orden = {fecha: "desc"}) {
+            let datos = JSON.parse(ventas);
+            for (const filtrosKey in filtros) {
+                datos = this.filtros[filtrosKey](datos, filtros[filtrosKey]);
+            }
+            for (const ordenKey in orden) {
+                datos = this.ordenes[ordenKey](datos, orden[ordenKey]);
+            }
+            callback(datos);
+        },
+        createData: function (callback, data) {
+            console.warn("Crear un recurso en el servidor");
+        },
+        updateData: function (callback, data) {
+            console.warn("Modificar un recurso en el servidor");
+        },
+        deleteData: function (callback, dataId) {
+            console.warn("Eliminar un recurso en el servidor");
+        },
+        filtros: {
+            vendedor: function (ventas, valor) {
+                return ventas.filter
+                (function (venta) {
+                    return venta.vendedor.id === valor;
+                })
+            },
+            cliente: function (ventas, valor) {
+                return ventas.filter
+                (function (venta) {
+                    return venta.cliente.id === valor;
+                })
+            },
+            fechaIni: function (ventas, valor) {
+                return ventas.filter
+                (function (venta) {
+                    return venta.fecha >= valor;
+                })
+            },
+            fechaFin: function (ventas, valor) {
+                return ventas.filter
+                (function (venta) {
+                    return venta.fecha <= valor;
+                })
+            },
+            importeInferior: function (ventas, valor) {
+                return ventas.filter(function (venta) {
+                    return venta.importe <= valor;
+                })
+            },
+            importeSuperior: function (ventas, valor) {
+                return ventas.filter(function (venta) {
+                    return venta.importe > valor;
+                })
+            }
+        },
+        ordenes: {
+            fecha: function (ventas, sentido) {
+                return ventas.sort(function (a, b) {
+                    if (a.fecha > b.fecha) return (sentido === "asc") ? 1 : -1;
+                    if (a.fecha < b.fecha) return (sentido === "asc") ? -1 : 1;
+                    return 0;
+                });
+            },
+            importe: function (ventas, sentido) {
+                return ventas.sort(function (a, b) {
+                    a = parseFloat(a.importe);
+                    b = parseFloat(b.importe);
+                    if (a > b) return (sentido === "asc") ? 1 : -1;
+                    if (a < b) return (sentido === "asc") ? -1 : 1;
+                    return 0;
+                });
+            },
+            vendedor: function (ventas, sentido) {
+                return ventas.sort(function (a, b) {
+                    if (a.vendedor.apellidos > b.vendedor.apellidos) return (sentido === "asc") ? 1 : -1;
+                    if (a.vendedor.apellidos < b.vendedor.apellidos) return (sentido === "asc") ? -1 : 1;
+                    if (a.vendedor.nombre > b.vendedor.nombre) return (sentido === "asc") ? 1 : -1;
+                    if (a.vendedor.nombre < b.vendedor.nombre) return (sentido === "asc") ? -1 : 1;
+                    return 0;
+                });
+            },
+            cliente: function (ventas, sentido) {
+                return ventas.sort(function (a, b) {
+                    if (a.cliente.nombre > b.cliente.nombre) return (sentido === "asc") ? 1 : -1;
+                    if (a.cliente.nombre < b.cliente.nombre) return (sentido === "asc") ? -1 : 1;
+                    return 0;
+                });
+            }
+        }
+    };
+    const ControladorVentas = {
+        iniciar: function (modelo, vistas) {
+            this.modelo = modelo;
+            this.vistas = vistas;
+            this.filtros = {};
+            this.orden = {fecha: "desc"};
+        },
+        getVentas: function () {
+            this.modelo.getData(this.actualizarVistas.bind(this), this.filtros, this.orden);
+        },
+        actualizarVistas: function (ventas) {
+            this.vistas.forEach(function (vista) {
+                vista.actualizar(ventas);
+            })
+        },
+        setFiltro: function (campo, valor) {
+            if (valor !== 0 && valor !== "") {
+                this.filtros[campo] = valor;
+            } else {
+                delete this.filtros[campo];
+            }
+        },
+        setOrden: function (campo, sentido = "asc") {
+            this.orden = {};
+            this.orden[campo] = sentido;
+        }
+    };
+    const VistaVentasTabla = {
+        iniciar: function(){
+            this.contenedor = document.getElementById('tablaVentas');
+        },
+        actualizar: function (datos) {
+            this.contenedor.innerHTML = "";
+            if (datos.length > 0) {
+                for (let i = 0; i < datos.length; i++) {
+                    let venta = datos[i];
+                    this.contenedor.appendChild(this.crearFilaVenta(venta));
+                }
+            } else {
+                this.contenedor.innerHTML = '<tr><td colspan="4" style="text-align: center">No hay ventas</td></tr>';
+            }
+        },
+        crearFilaVenta: function(venta){
+            let fila = document.createElement('tr');
+            let celdaVendedor = document.createElement('td');
+            celdaVendedor.textContent = venta.vendedor.nombre + ' ' + venta.vendedor.apellidos;
+            let celdaCliente = document.createElement('td');
+            celdaCliente.textContent = venta.cliente.nombre;
+            let celdaFecha = document.createElement('td');
+            celdaFecha.textContent = venta.fecha;
+            let celdaImporte = document.createElement('td');
+            celdaImporte.textContent = venta.importe + '€';
+            fila.append(celdaVendedor, celdaCliente, celdaFecha, celdaImporte);
+            return fila;
+        }
+    };
+    VistaVentasTabla.iniciar();
+
+
+    const VistaBotonesOrden = {
+        iniciar: function (){
+            this.botones = document.querySelectorAll("[data-campo]")
+            for (const boton of this.botones) {
+                boton.onClick= this.onClickBoton.bind(this);
+            }
+            this.controlador=ControladorVentas;
+        },
+        actualizar: function(datos){
+            let orden = ""
+            let sentido = ""
+            for (const ordenKey in this.controlador.orden){
+                orden = ordenKey;
+                sentido = this.controlador.orden[ordenKey]
+            }
+            for (const boton of this.botones) {
+                if (boton.dataset.campo === orden){
+                    boton.innerHTML = (sentido === "asc") ? "&uarr;" : "&darr;"
+                }else{
+                    boton.innerHTML = "&nbsp;"
+                }
+            }
+        },
+        onClickBoton: function(event){
+            console.log(event.target)
+            let sentido = (event.target.innerHTML === "&uarr;") ? "desc" : "asc";
+            this.controlador.setOrden(event.target.dataset.campo, sentido)
+            this.controlador.getVentas();
+        }
+    }
+
+    ControladorVentas.iniciar(ModeloVentas, [VistaVentasTabla]);
+    ControladorVentas.getVentas();
+    VistaBotonesOrden.iniciar();
+    var selectorVendedores = {
+        iniciar:function(){}
+
+    };
+    selectorVendedores.iniciar("selector-vendedores", JSON.parse(vendedores));
+
+    function rellenarTablaVentas(datos) {
+        contenedor.innerHTML = "";
+        if (datos.length > 0) {
+            for (let i = 0; i < datos.length; i++) {
+                let venta = datos[i];
+                contenedor.appendChild(crearFilaVenta(venta));
+            }
+        } else {
+            contenedor.innerHTML = '<tr><td colspan="4" style="text-align: center">No hay ventas</td></tr>';
+        }
+    }
+
+   <!-- rellenarTablaVentas(listaDeVentas);-->
+
+</script>
+
+
+</body>
+</html>
